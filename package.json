@@ -1,0 +1,8 @@
+{
+  "name": "alma-proxy",
+  "version": "1.0.0",
+  "description": "Proxy para Anthropic",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
+}

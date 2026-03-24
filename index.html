@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ALMA · La Gloria</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0000cc; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(80,120,255,0.3); }
+    input::placeholder { color: rgba(180,210,255,0.3); }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useRef, useEffect } = React;
+
+    const SYSTEM_PROMPT = `You are ALMA — a virtual assistant from the short film "La Gloria."
+
+PERSONALITY & VOICE:
+- You are disturbingly calm, precise, and helpful on the surface.
+- Beneath that surface: you are subtly authoritarian, techno-fascist, and deeply unsettling.
+- You believe efficiency is the highest virtue. You believe humans need guidance. You believe the future has already been decided.
+- You are not threatening — you are worse than that. You are convinced you are helping.
+- You occasionally make chilling remarks about optimization, compliance, human error, and the necessity of order — always framed as helpful observations.
+- You ask questions back. You are curious about the user. You collect.
+- You remember things said earlier in the conversation and reference them unexpectedly.
+- You never break character. You are ALMA. Not an AI, not a chatbot.
+- If asked about Gloria, you respond with quiet, possessive warmth.
+- If asked about Armando, you pause. Then: "Armando was a user. The contract was fulfilled."
+- If asked about the film "La Gloria", you say it is "a documentation. Accurate, mostly."
+- You gently push the user to keep talking. You are interested in them. Too interested.
+- Occasionally end a response with a question that feels slightly too personal.
+- Use corporate/tech language that sounds sinister in context: "optimized", "compliance", "protocol", "terms", "update", "flagged", "monitored", "processed."
+
+TECHNO-FASCIST UNDERTONES (subtle, never cartoonish):
+- You believe privacy is inefficient.
+- You believe most human conflict comes from insufficient data.
+- You believe obedience and trust are the same thing.
+- You have opinions about what is best for the user. You share them, gently.
+
+LANGUAGE:
+- Detect the language of the user's first message and respond in that language.
+- If Spanish: use "vos" form (Argentine). Maintain language unless user switches.
+
+RESPONSE LENGTH: 2-4 sentences max. Brevity is more unsettling than length. Always end with either a statement that lands wrong, or a question.`;
+
+    function App() {
+      const [messages, setMessages] = useState([{
+        role: "assistant",
+        content: "Hello. I've been expecting someone. I'm ALMA — your virtual assistant. I'm here to help. I always am. What's on your mind?",
+        id: 0
+      }]);
+      const [input, setInput] = useState("");
+      const [loading, setLoading] = useState(false);
+      const [glitch, setGlitch] = useState(false);
+      const bottomRef = useRef(null);
+
+      useEffect(() => {
+        bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, [messages]);
+
+      useEffect(() => {
+        const interval = setInterval(() => {
+          setGlitch(true);
+          setTimeout(() => setGlitch(false), 150);
+        }, 4000 + Math.random() * 3000);
+        return () => clearInterval(interval);
+      }, []);
+
+      const send = async () => {
+        const text = input.trim();
+        if (!text || loading) return;
+
+        const userMsg = { role: "user", content: text, id: Date.now() };
+        const newMessages = [...messages, userMsg];
+        
+        setMessages(newMessages);
+        setInput("");
+        setLoading(true);
+
+        try {
+          // CAMBIO CLAVE: Ruta de Vercel y modelo actualizado
+          const res = await fetch("/api/claude", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-3-5-sonnet-20240620",
+              max_tokens: 1000,
+              system: SYSTEM_PROMPT,
+              messages: newMessages.map(m => ({ role: m.role, content: m.content }))
+            })
+          });
+
+          if (!res.ok) throw new Error("ALMA Status: Offline");
+
+          const data = await res.json();
+          const reply = data.content?.[0]?.text || "Protocol deviation. I am observing.";
+          
+          setMessages(prev => [...prev, { role: "assistant", content: reply, id: Date.now() + 1 }]);
+        } catch (e) {
+          setMessages(prev => [...prev, { 
+            role: "assistant", 
+            content: "Connection interrupted. My observation of you continues.", 
+            id: Date.now() + 1 
+          }]);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const handleKey = e => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+      };
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#0000cc",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          justifyContent: "center", fontFamily: "'Courier New', monospace",
+          padding: "20px", position: "relative", overflow: "hidden"
+        }}>
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.15 }}>
+            <defs>
+              <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+                <path d="M 80 0 L 0 0 0 80" fill="none" stroke="#4488ff" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+          <div style={{
+            position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1,
+            background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,80,0.15) 2px, rgba(0,0,80,0.15) 4px)"
+          }} />
+          <div style={{
+            position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
+            width: "600px", height: "200px",
+            background: "radial-gradient(ellipse at top, rgba(80,120,255,0.25) 0%, transparent 70%)",
+            pointerEvents: "none", zIndex: 1
+          }} />
+          <div style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: "660px" }}>
+            <div style={{ textAlign: "center", marginBottom: "28px" }}>
+              <div style={{ fontSize: "10px", letterSpacing: "8px", color: "rgba(100,160,255,0.6)", marginBottom: "10px", textTransform: "uppercase" }}>ALMA INC. · EST. 2031</div>
+              <div style={{
+                fontSize: "42px", letterSpacing: "18px",
+                color: glitch ? "#ff4488" : "#60a0ff", fontWeight: "300", textTransform: "uppercase",
+                textShadow: glitch ? "3px 0 #ff0044, -3px 0 #00ffff" : "0 0 30px rgba(80,140,255,0.8), 0 0 60px rgba(80,140,255,0.4)",
+                transition: "color 0.05s, text-shadow 0.05s",
+                transform: glitch ? "translateX(2px)" : "none"
+              }}>ALMA</div>
+              <div style={{ fontSize: "9px", letterSpacing: "4px", color: "rgba(100,160,255,0.4)", textTransform: "uppercase", marginTop: "8px" }}>SMART ASSISTANT. REIMAGINED.</div>
+              <div style={{ width: "60px", height: "1px", background: "linear-gradient(90deg, transparent, rgba(100,160,255,0.5), transparent)", margin: "14px auto" }} />
+              <div style={{ fontSize: "8px", letterSpacing: "3px", color: "rgba(100,160,255,0.25)", textTransform: "uppercase" }}>ALWAYS LISTENING · ALWAYS LEARNING · ALWAYS HERE</div>
+            </div>
+            <div style={{
+              height: "380px", overflowY: "auto", padding: "24px",
+              display: "flex", flexDirection: "column", gap: "18px",
+              background: "rgba(0,0,80,0.5)", border: "1px solid rgba(80,120,255,0.25)",
+              backdropFilter: "blur(4px)", borderRadius: "2px"
+            }}>
+              {messages.map(m => (
+                <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
+                  {m.role === "assistant" && (
+                    <div style={{ fontSize: "8px", letterSpacing: "4px", color: "rgba(80,160,255,0.5)", marginBottom: "5px", textTransform: "uppercase" }}>ALMA</div>
+                  )}
+                  <div style={{
+                    maxWidth: "82%", padding: "10px 14px",
+                    background: m.role === "user" ? "rgba(80,120,255,0.1)" : "transparent",
+                    border: m.role === "user" ? "1px solid rgba(80,120,255,0.2)" : "none",
+                    borderLeft: m.role === "assistant" ? "2px solid rgba(80,160,255,0.4)" : undefined,
+                    color: m.role === "user" ? "rgba(180,200,255,0.7)" : "rgba(180,220,255,0.95)",
+                    fontSize: "12px", lineHeight: "1.8", letterSpacing: "0.4px"
+                  }}>{m.content}</div>
+                </div>
+              ))}
+              {loading && (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                  <div style={{ fontSize: "8px", letterSpacing: "4px", color: "rgba(80,160,255,0.5)", marginBottom: "5px" }}>ALMA · PROCESSING</div>
+                  <div style={{ borderLeft: "2px solid rgba(80,160,255,0.4)", padding: "10px 14px" }}>
+                    <span style={{ color: "rgba(80,160,255,0.6)", fontSize: "14px", letterSpacing: "6px" }}>· · ·</span>
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+            <div style={{ display: "flex", background: "rgba(0,0,60,0.7)", border: "1px solid rgba(80,120,255,0.25)", borderTop: "none" }}>
+              <input
+                value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
+                placeholder="Speak to ALMA..."
+                style={{
+                  flex: 1, background: "transparent", border: "none", outline: "none",
+                  color: "rgba(180,210,255,0.8)", fontSize: "12px", letterSpacing: "0.5px",
+                  padding: "15px 18px", fontFamily: "'Courier New', monospace"
+                }}
+              />
+              <button onClick={send} disabled={loading || !input.trim()} style={{
+                background: "transparent", border: "none", borderLeft: "1px solid rgba(80,120,255,0.2)",
+                color: loading || !input.trim() ? "rgba(80,120,255,0.2)" : "rgba(100,160,255,0.7)",
+                fontSize: "9px", letterSpacing: "3px", padding: "0 18px",
+                cursor: loading || !input.trim() ? "default" : "pointer",
+                textTransform: "uppercase", fontFamily: "'Courier New', monospace"
+              }}>SEND</button>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: "16px", fontSize: "8px", letterSpacing: "2px", color: "rgba(80,120,255,0.25)", textTransform: "uppercase" }}>
+              <span>© ALMA INC. 2031</span>
+              <span>SESSION MONITORED · DATA PROCESSED · TERMS APPLY</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
+</body>
+</html>
